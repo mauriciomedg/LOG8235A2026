@@ -21,10 +21,13 @@ private:
 
     FVector Direction = FVector(0.0f,1.0f,0.0f);
 
-    //temporary values
-    float Acceleration = 500.0f;
-    float MaxSpeed = 300.0f;
+    float Acceleration = 100.0f;
+    float MaxSpeed = 66.0f;
+
+    float WallDetectionDistance = 400.0f;
+    float AvoidanceAngle = 180.0f;
 
 
+    bool DetectWall(FHitResult& HitResult) const;
 
 };
