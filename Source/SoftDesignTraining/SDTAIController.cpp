@@ -2,12 +2,17 @@
 
 #include "SDTAIController.h"
 #include "SoftDesignTraining.h"
-
+#include "StateMachine.h"
 #include "DrawDebugHelpers.h"
 
-void ASDTAIController::Tick(float deltaTime)
+ASDTAIController::ASDTAIController(const FObjectInitializer& ObjectInitializer)
+    : Super(ObjectInitializer)
 {
+    StateMachine = CreateDefaultSubobject<UStateMachine>("AIStateMachine");
+}
 
+void ASDTAIController::Navigation(const FVector& DesiredDirection, float deltaTime)
+{
     APawn* ControlledPawn = GetPawn();
 
     if (!ControlledPawn) {
@@ -16,7 +21,7 @@ void ASDTAIController::Tick(float deltaTime)
 
     FHitResult HitResult;
 
-    if (DetectWall(HitResult))
+    if (DetectWall(DesiredDirection, HitResult))
     {
         FVector AvoidanceDirection =
             FVector::CrossProduct(
@@ -24,7 +29,7 @@ void ASDTAIController::Tick(float deltaTime)
                 HitResult.Normal
             ).GetSafeNormal();
 
-        if (FVector::DotProduct(AvoidanceDirection, Direction) < 0.0f)
+        if (FVector::DotProduct(AvoidanceDirection, DesiredDirection) < 0.0f)
         {
             AvoidanceDirection *= -1.0f;
         }
@@ -35,7 +40,7 @@ void ASDTAIController::Tick(float deltaTime)
         float TurnDirection =
             FVector::DotProduct(
                 FVector::CrossProduct(
-                    Direction,
+                    DesiredDirection,
                     AvoidanceDirection
                 ),
                 FVector::UpVector
@@ -51,14 +56,12 @@ void ASDTAIController::Tick(float deltaTime)
             nullptr,
             ETeleportType::None
         );
-        Direction = ControlledPawn->GetActorForwardVector().GetSafeNormal();
-        Velocity = Direction * Velocity.Size();
+        //DesiredDirection = ControlledPawn->GetActorForwardVector().GetSafeNormal();
+        Velocity = DesiredDirection * Velocity.Size();
 
     }
 
-
-
-    Velocity += Direction * Acceleration * deltaTime;
+    Velocity += DesiredDirection * Acceleration * deltaTime;
 
     if (Velocity.Size() > MaxSpeed) {
         Velocity = Velocity.GetSafeNormal() * MaxSpeed;
@@ -72,12 +75,18 @@ void ASDTAIController::Tick(float deltaTime)
             Velocity.GetSafeNormal().Rotation()
         );
     }
+}
 
+void ASDTAIController::Tick(float deltaTime)
+{
+    FVector OutDirection;
+    StateMachine->Run(GetPawn(), OutDirection);
 
+    Navigation(OutDirection, deltaTime);
 }
 
 
-bool ASDTAIController::DetectWall(FHitResult& HitResult) const
+bool ASDTAIController::DetectWall(const FVector& DesiredDirection, FHitResult& HitResult) const
 {
     APawn* ControlledPawn = GetPawn();
     if (!ControlledPawn)
@@ -86,7 +95,7 @@ bool ASDTAIController::DetectWall(FHitResult& HitResult) const
     }
 
     FVector Start = ControlledPawn->GetActorLocation();
-    FVector End = Start + Direction.GetSafeNormal() * WallDetectionDistance;
+    FVector End = Start + DesiredDirection.GetSafeNormal() * WallDetectionDistance;
 
     FCollisionObjectQueryParams ObjectQueryParams;
     ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldStatic);
