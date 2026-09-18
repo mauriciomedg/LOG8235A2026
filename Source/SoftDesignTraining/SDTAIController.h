@@ -7,6 +7,8 @@
 
 #include "SDTAIController.generated.h"
 
+class UStateMachine;
+class ACharacter;
 /**
  * 
  */
@@ -15,19 +17,25 @@ class SOFTDESIGNTRAINING_API ASDTAIController : public AAIController
 {
     GENERATED_BODY()
 public:
+    ASDTAIController(const FObjectInitializer& ObjectInitializer);
+
     virtual void Tick(float deltaTime) override;
 private:
     FVector Velocity = FVector::ZeroVector;
 
-    FVector Direction = FVector(0.0f,1.0f,0.0f);
+    //FVector Direction = FVector(0.0f,1.0f,0.0f);
 
     float Acceleration = 100.0f;
     float MaxSpeed = 66.0f;
 
     float WallDetectionDistance = 400.0f;
-    float AvoidanceAngle = 180.0f;
+    float AvoidanceAngle = 90.0f;
 
+    void Navigation(const FVector& DesiredDirection, float deltaTime);
 
-    bool DetectWall(FHitResult& HitResult) const;
+    bool DetectWall(const FVector& DesiredDirection, TArray<FHitResult>& Hits) const;
+
+    UPROPERTY()
+    TObjectPtr<UStateMachine> StateMachine;
 
 };

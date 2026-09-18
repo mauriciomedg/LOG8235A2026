@@ -2,69 +2,76 @@
 
 #include "SDTAIController.h"
 #include "SoftDesignTraining.h"
-
+#include "StateMachine.h"
 #include "DrawDebugHelpers.h"
 
-void ASDTAIController::Tick(float deltaTime)
+ASDTAIController::ASDTAIController(const FObjectInitializer& ObjectInitializer)
+    : Super(ObjectInitializer)
 {
+    StateMachine = CreateDefaultSubobject<UStateMachine>("AIStateMachine");
+}
 
+void ASDTAIController::Navigation(const FVector& DesiredDirection, float deltaTime)
+{
     APawn* ControlledPawn = GetPawn();
 
     if (!ControlledPawn) {
         return;
     }
 
-    FHitResult HitResult;
+    TArray<FHitResult> Hits;
 
-    if (DetectWall(HitResult))
+    FVector MovementDirection = DesiredDirection.GetSafeNormal();
+
+    if (DetectWall(MovementDirection, Hits))
     {
-        FVector AvoidanceDirection =
-            FVector::CrossProduct(
-                FVector::UpVector,
-                HitResult.Normal
-            ).GetSafeNormal();
+        FVector AvoidanceDirection = FVector::ZeroVector;
 
-        if (FVector::DotProduct(AvoidanceDirection, Direction) < 0.0f)
+        for (const FHitResult& Hit : Hits)
         {
-            AvoidanceDirection *= -1.0f;
+            if (Hit.bBlockingHit)
+            {
+                AvoidanceDirection += Hit.Normal;
+            }
         }
 
+        AvoidanceDirection.Normalize();
 
-        float RotationAmount = AvoidanceAngle * deltaTime;
+        const float CrossZ =
+            FVector::CrossProduct(
+                MovementDirection,
+                AvoidanceDirection
+            ).Z;
 
-        float TurnDirection =
-            FVector::DotProduct(
-                FVector::CrossProduct(
-                    Direction,
-                    AvoidanceDirection
-                ),
+        const float TurnSign = FMath::Sign(CrossZ);
+
+        const float RotationAmount =
+            TurnSign * AvoidanceAngle * deltaTime;
+
+        // Rotate the actual movement direction
+        MovementDirection =
+            MovementDirection.RotateAngleAxis(
+                RotationAmount,
                 FVector::UpVector
             );
 
-        if (TurnDirection < 0.0f)
-        {
-            RotationAmount *= -1.0f;
-        }
-        ControlledPawn->AddActorWorldRotation(
-            FRotator(0.0f, RotationAmount, 0.0f),
-            false,
-            nullptr,
-            ETeleportType::None
-        );
-        Direction = ControlledPawn->GetActorForwardVector().GetSafeNormal();
-        Velocity = Direction * Velocity.Size();
-
+        Velocity =
+            MovementDirection * Velocity.Size();
     }
 
+    Velocity +=
+        MovementDirection * Acceleration * deltaTime;
 
-
-    Velocity += Direction * Acceleration * deltaTime;
-
-    if (Velocity.Size() > MaxSpeed) {
-        Velocity = Velocity.GetSafeNormal() * MaxSpeed;
+    if (Velocity.Size() > MaxSpeed)
+    {
+        Velocity =
+            Velocity.GetSafeNormal() * MaxSpeed;
     }
 
-    ControlledPawn->AddMovementInput(Velocity.GetSafeNormal(), Velocity.Size() * deltaTime);
+    ControlledPawn->AddMovementInput(
+        Velocity.GetSafeNormal(),
+        Velocity.Size() * deltaTime
+    );
 
     if (!Velocity.IsNearlyZero())
     {
@@ -72,12 +79,19 @@ void ASDTAIController::Tick(float deltaTime)
             Velocity.GetSafeNormal().Rotation()
         );
     }
+}
 
+void ASDTAIController::Tick(float deltaTime)
+{
+    Super::Tick(deltaTime);
+    FVector OutDirection;
+    StateMachine->Run(GetPawn(), OutDirection);
 
+    Navigation(OutDirection, deltaTime);
 }
 
 
-bool ASDTAIController::DetectWall(FHitResult& HitResult) const
+bool ASDTAIController::DetectWall(const FVector& DesiredDirection, TArray<FHitResult>& Hits) const
 {
     APawn* ControlledPawn = GetPawn();
     if (!ControlledPawn)
@@ -86,7 +100,7 @@ bool ASDTAIController::DetectWall(FHitResult& HitResult) const
     }
 
     FVector Start = ControlledPawn->GetActorLocation();
-    FVector End = Start + Direction.GetSafeNormal() * WallDetectionDistance;
+    FVector End = Start + DesiredDirection.GetSafeNormal() * WallDetectionDistance;
 
     FCollisionObjectQueryParams ObjectQueryParams;
     ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldStatic);
@@ -96,21 +110,21 @@ bool ASDTAIController::DetectWall(FHitResult& HitResult) const
 
     float SweepRadius = 100.0f;
     FCollisionShape CollisionShape =
-    FCollisionShape::MakeSphere(SweepRadius);
+        FCollisionShape::MakeSphere(SweepRadius);
 
-    DrawDebugSphere(
-        GetWorld(),
-        Start,
-        SweepRadius,
-        16,
-        FColor::Red,
-        false,
-        0.0f
-    );
+    //DrawDebugSphere(
+    //    GetWorld(),
+    //    Start,
+    //    SweepRadius,
+    //    16,
+    //    FColor::Red,
+    //    false,
+    //    0.0f
+    //);
 
 
-    return GetWorld()->SweepSingleByObjectType(
-        HitResult,
+    return GetWorld()->SweepMultiByObjectType(
+        Hits,
         Start,
         End,
         FQuat::Identity,
