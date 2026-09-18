@@ -19,55 +19,59 @@ void ASDTAIController::Navigation(const FVector& DesiredDirection, float deltaTi
         return;
     }
 
-    FHitResult HitResult;
+    TArray<FHitResult> Hits;
 
-    if (DetectWall(DesiredDirection, HitResult))
+    FVector MovementDirection = DesiredDirection.GetSafeNormal();
+
+    if (DetectWall(MovementDirection, Hits))
     {
-        FVector AvoidanceDirection =
-            FVector::CrossProduct(
-                FVector::UpVector,
-                HitResult.Normal
-            ).GetSafeNormal();
+        FVector AvoidanceDirection = FVector::ZeroVector;
 
-        if (FVector::DotProduct(AvoidanceDirection, DesiredDirection) < 0.0f)
+        for (const FHitResult& Hit : Hits)
         {
-            AvoidanceDirection *= -1.0f;
+            if (Hit.bBlockingHit)
+            {
+                AvoidanceDirection += Hit.Normal;
+            }
         }
 
+        AvoidanceDirection.Normalize();
 
-        float RotationAmount = AvoidanceAngle * deltaTime;
+        const float CrossZ =
+            FVector::CrossProduct(
+                MovementDirection,
+                AvoidanceDirection
+            ).Z;
 
-        float TurnDirection =
-            FVector::DotProduct(
-                FVector::CrossProduct(
-                    DesiredDirection,
-                    AvoidanceDirection
-                ),
+        const float TurnSign = FMath::Sign(CrossZ);
+
+        const float RotationAmount =
+            TurnSign * AvoidanceAngle * deltaTime;
+
+        // Rotate the actual movement direction
+        MovementDirection =
+            MovementDirection.RotateAngleAxis(
+                RotationAmount,
                 FVector::UpVector
             );
 
-        if (TurnDirection < 0.0f)
-        {
-            RotationAmount *= -1.0f;
-        }
-        ControlledPawn->AddActorWorldRotation(
-            FRotator(0.0f, RotationAmount, 0.0f),
-            false,
-            nullptr,
-            ETeleportType::None
-        );
-        //DesiredDirection = ControlledPawn->GetActorForwardVector().GetSafeNormal();
-        Velocity = DesiredDirection * Velocity.Size();
-
+        Velocity =
+            MovementDirection * Velocity.Size();
     }
 
-    Velocity += DesiredDirection * Acceleration * deltaTime;
+    Velocity +=
+        MovementDirection * Acceleration * deltaTime;
 
-    if (Velocity.Size() > MaxSpeed) {
-        Velocity = Velocity.GetSafeNormal() * MaxSpeed;
+    if (Velocity.Size() > MaxSpeed)
+    {
+        Velocity =
+            Velocity.GetSafeNormal() * MaxSpeed;
     }
 
-    ControlledPawn->AddMovementInput(Velocity.GetSafeNormal(), Velocity.Size() * deltaTime);
+    ControlledPawn->AddMovementInput(
+        Velocity.GetSafeNormal(),
+        Velocity.Size() * deltaTime
+    );
 
     if (!Velocity.IsNearlyZero())
     {
@@ -79,6 +83,7 @@ void ASDTAIController::Navigation(const FVector& DesiredDirection, float deltaTi
 
 void ASDTAIController::Tick(float deltaTime)
 {
+    Super::Tick(deltaTime);
     FVector OutDirection;
     StateMachine->Run(GetPawn(), OutDirection);
 
@@ -86,7 +91,7 @@ void ASDTAIController::Tick(float deltaTime)
 }
 
 
-bool ASDTAIController::DetectWall(const FVector& DesiredDirection, FHitResult& HitResult) const
+bool ASDTAIController::DetectWall(const FVector& DesiredDirection, TArray<FHitResult>& Hits) const
 {
     APawn* ControlledPawn = GetPawn();
     if (!ControlledPawn)
@@ -105,21 +110,21 @@ bool ASDTAIController::DetectWall(const FVector& DesiredDirection, FHitResult& H
 
     float SweepRadius = 100.0f;
     FCollisionShape CollisionShape =
-    FCollisionShape::MakeSphere(SweepRadius);
+        FCollisionShape::MakeSphere(SweepRadius);
 
-    DrawDebugSphere(
-        GetWorld(),
-        Start,
-        SweepRadius,
-        16,
-        FColor::Red,
-        false,
-        0.0f
-    );
+    //DrawDebugSphere(
+    //    GetWorld(),
+    //    Start,
+    //    SweepRadius,
+    //    16,
+    //    FColor::Red,
+    //    false,
+    //    0.0f
+    //);
 
 
-    return GetWorld()->SweepSingleByObjectType(
-        HitResult,
+    return GetWorld()->SweepMultiByObjectType(
+        Hits,
         Start,
         End,
         FQuat::Identity,

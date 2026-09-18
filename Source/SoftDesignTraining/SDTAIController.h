@@ -29,11 +29,11 @@ private:
     float MaxSpeed = 66.0f;
 
     float WallDetectionDistance = 400.0f;
-    float AvoidanceAngle = 180.0f;
+    float AvoidanceAngle = 90.0f;
 
     void Navigation(const FVector& DesiredDirection, float deltaTime);
 
-    bool DetectWall(const FVector& DesiredDirection, FHitResult& HitResult) const;
+    bool DetectWall(const FVector& DesiredDirection, TArray<FHitResult>& Hits) const;
 
     UPROPERTY()
     TObjectPtr<UStateMachine> StateMachine;
