@@ -1,217 +1,260 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-
 #include "StateMachine.h"
 
-#include "StateMachine.h"
 #include "SoftDesignTraining/SDTCollectible.h"
-#include "EngineUtils.h"
 #include "SoftDesignTraining/SoftDesignTrainingMainCharacter.h"
+
+#include "EngineUtils.h"
 #include "Kismet/GameplayStatics.h"
 
 bool UStateMachine::IsCharacterClose(ACharacter* TargetCharacter, APawn* AIPawn)
 {
-    FVector AIPosition = AIPawn->GetActorLocation();
-    FVector PlayerPosition = TargetCharacter->GetActorLocation();
+    if (!TargetCharacter || !AIPawn)
+    {
+        return false;
+    }
 
-    float SphereRadius = 800.0f;
+    const FVector AIPosition = AIPawn->GetActorLocation();
+    const FVector PlayerPosition = TargetCharacter->GetActorLocation();
+    const float SphereRadius = 800.0f;
 
     return FVector::Dist(AIPosition, PlayerPosition) <= SphereRadius;
 }
 
 bool UStateMachine::IsCharacterInSight(ACharacter* TargetCharacter, APawn* AIPawn)
 {
-    FVector AIPosition = AIPawn->GetActorLocation();
-    FVector PlayerPosition = TargetCharacter->GetActorLocation();
+    if (!TargetCharacter || !AIPawn)
+    {
+        return false;
+    }
+
+    const FVector AIPosition = AIPawn->GetActorLocation();
+    const FVector PlayerPosition = TargetCharacter->GetActorLocation();
+
+    FCollisionObjectQueryParams ObjectQueryParams(FCollisionObjectQueryParams::AllStaticObjects);
+    FCollisionQueryParams QueryParams;
+    QueryParams.AddIgnoredActor(AIPawn);
+    QueryParams.AddIgnoredActor(TargetCharacter);
 
     FHitResult HitResult;
-    FCollisionObjectQueryParams QueryParams(FCollisionObjectQueryParams::AllStaticObjects);
+    const bool bHit = GetWorld()->LineTraceSingleByObjectType(
+        HitResult, AIPosition, PlayerPosition, ObjectQueryParams, QueryParams);
 
-    bool bHit = GetWorld()->LineTraceSingleByObjectType(
-        HitResult,
-        AIPosition,
-        PlayerPosition,
-        QueryParams
-    );
-
-
-    if (bHit)
-        return false;
-    return true;
+    return !bHit;
 }
 
 void UStateMachine::FindPickup(APawn* AIPawn)
 {
-    FVector AIPosition = AIPawn->GetActorLocation();
-    float MinDistance = 750.0f;
     ClosestPickupPosition = FVector::ZeroVector;
+
+    if (!AIPawn)
+    {
+        return;
+    }
+
+    const FVector AIPosition = AIPawn->GetActorLocation();
+    float MinDistance = 750.0f;
 
     for (TActorIterator<AActor> It(GetWorld()); It; ++It)
     {
         ASDTCollectible* Pickup = Cast<ASDTCollectible>(*It);
-        if (Pickup && !Pickup->IsOnCooldown())
+        if (!Pickup || Pickup->IsOnCooldown())
         {
-            FVector PickupPosition = Pickup->GetActorLocation();
-            float Distance = FVector::Dist(AIPosition, PickupPosition);
+            continue;
+        }
 
-            if (Distance < MinDistance)
-            {
-                FHitResult HitResult;
-                FCollisionObjectQueryParams ObjectQueryParams(FCollisionObjectQueryParams::AllObjects);
-                FCollisionQueryParams QueryParams;
-                QueryParams.AddIgnoredActor(AIPawn);
+        const FVector PickupPosition = Pickup->GetActorLocation();
+        const float Distance = FVector::Dist(AIPosition, PickupPosition);
+        if (Distance >= MinDistance)
+        {
+            continue;
+        }
 
-                bool bHit = GetWorld()->LineTraceSingleByObjectType(
-                    HitResult,
-                    AIPosition,
-                    PickupPosition,
-                    ObjectQueryParams,
-                    QueryParams
-                );
-                //UE_LOG(LogTemp, Warning, TEXT("Hit Actor: %s"), bHit ? *HitResult.GetActor()->GetName() : TEXT("None"));
-                if (bHit && HitResult.GetActor() == Pickup)
-                {
-                    ClosestPickupPosition = PickupPosition;
-                }
-            }
+        // Le pickup doit être visible
+        FCollisionObjectQueryParams ObjectQueryParams(FCollisionObjectQueryParams::AllObjects);
+        FCollisionQueryParams QueryParams;
+        QueryParams.AddIgnoredActor(AIPawn);
+
+        FHitResult HitResult;
+        const bool bHit = GetWorld()->LineTraceSingleByObjectType(
+            HitResult, AIPosition, PickupPosition, ObjectQueryParams, QueryParams);
+
+        if (bHit && HitResult.GetActor() == Pickup)
+        {
+            ClosestPickupPosition = PickupPosition;
+            MinDistance = Distance;
         }
     }
 }
 
-void UStateMachine::UpdateReferencePosition(ACharacter* TargetCharacter, APawn* AIPawn)
-{
-    FVector PlayerPosition = TargetCharacter->GetActorLocation();
-    if (IsCharacterInSight(TargetCharacter, AIPawn) && FVector::Dist(ReferencePlayerPosition, PlayerPosition) > 10.0f)
-        ReferencePlayerPosition = PlayerPosition;
-}
-
 FVector UStateMachine::Chase(APawn* AIPawn)
 {
-    ACharacter* PlayerCharacter = Cast<ACharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
+    if (!AIPawn)
+    {
+        return FVector::ZeroVector;
+    }
 
-    UpdateReferencePosition(PlayerCharacter, AIPawn);
-    FVector AIPosition = AIPawn->GetActorLocation();
-    FVector DirectionVector = (ReferencePlayerPosition - AIPosition).GetSafeNormal();
-    //AddMovement(DirectionVector);
-    return DirectionVector;
+    ACharacter* PlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+    if (!PlayerCharacter)
+    {
+        return FVector::ZeroVector;
+    }
+
+    FVector Direction = PlayerCharacter->GetActorLocation() - AIPawn->GetActorLocation();
+    Direction.Z = 0.0f;
+
+    return Direction.GetSafeNormal();
 }
 
 FVector UStateMachine::Flee(APawn* AIPawn)
 {
-    ACharacter* PlayerCharacter = Cast<ACharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
+    if (!AIPawn)
+    {
+        return FVector::ZeroVector;
+    }
 
-    FVector AIPosition = AIPawn->GetActorLocation();
-    FVector PlayerPosition = PlayerCharacter->GetActorLocation();
-    FVector DirectionVector = (PlayerPosition - AIPosition).GetSafeNormal();
-    //AddMovement(-DirectionVector);
-    return -DirectionVector;
+    ACharacter* PlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+    if (!PlayerCharacter)
+    {
+        return FVector::ZeroVector;
+    }
+
+    FVector Direction = AIPawn->GetActorLocation() - PlayerCharacter->GetActorLocation();
+    Direction.Z = 0.0f;
+
+    return Direction.GetSafeNormal();
 }
 
 FVector UStateMachine::Collect(APawn* AIPawn)
 {
-    FVector AIPosition = AIPawn->GetActorLocation();
-    FVector DirectionVector = (ClosestPickupPosition - AIPosition).GetSafeNormal();
-    //AddMovement(DirectionVector);
-    return DirectionVector;
+    if (!AIPawn || ClosestPickupPosition.IsNearlyZero())
+    {
+        return FVector::ZeroVector;
+    }
+
+    FVector Direction = ClosestPickupPosition - AIPawn->GetActorLocation();
+    Direction.Z = 0.0f;
+
+    return Direction.GetSafeNormal();
 }
 
 void UStateMachine::Transition(APawn* AIPawn)
 {
-    ASoftDesignTrainingMainCharacter* PlayerCharacter = Cast<ASoftDesignTrainingMainCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
+    if (!AIPawn)
+    {
+        return;
+    }
 
-    bool bIsClose = IsCharacterClose(PlayerCharacter, AIPawn);
-    bool bInSight = IsCharacterInSight(PlayerCharacter, AIPawn);
-    bool bplayerHasPickup = PlayerCharacter->IsPoweredUp();
+    ASoftDesignTrainingMainCharacter* PlayerCharacter =
+        Cast<ASoftDesignTrainingMainCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
+    if (!PlayerCharacter)
+    {
+        return;
+    }
+
+    const bool bPlayerClose = IsCharacterClose(PlayerCharacter, AIPawn);
+    const bool bPlayerPoweredUp = PlayerCharacter->IsPoweredUp();
 
     switch (CurrentState)
     {
     case AIState::Patrol:
-        if (bIsClose && bInSight && !bplayerHasPickup)
-        {
-            CurrentState = AIState::Chase;
-        }
-        if (bIsClose && bInSight && bplayerHasPickup)
+        if (bPlayerClose && bPlayerPoweredUp)
         {
             CurrentState = AIState::Flee;
         }
-        FindPickup(AIPawn);
-        if (ClosestPickupPosition != FVector::ZeroVector)
+        else if (bPlayerClose)
         {
-            CurrentState = AIState::Collect;
+            CurrentState = AIState::Chase;
+        }
+        else
+        {
+            FindPickup(AIPawn);
+            if (!ClosestPickupPosition.IsNearlyZero())
+            {
+                CurrentState = AIState::Collect;
+            }
         }
         break;
+
     case AIState::Chase:
-        if (!bIsClose)
-        {
-            CurrentState = AIState::Patrol;
-        }
-        if (bIsClose && bInSight && bplayerHasPickup)
+        if (bPlayerClose && bPlayerPoweredUp)
         {
             CurrentState = AIState::Flee;
         }
+        else if (!bPlayerClose)
+        {
+            CurrentState = AIState::Patrol;
+        }
         break;
+
     case AIState::Flee:
-        if (!bIsClose)
+        if (!bPlayerClose)
         {
             CurrentState = AIState::Patrol;
         }
-        if (bIsClose && bInSight && !bplayerHasPickup)
+        else if (!bPlayerPoweredUp)
         {
             CurrentState = AIState::Chase;
         }
         break;
+
     case AIState::Collect:
-        if (bIsClose && bInSight && !bplayerHasPickup)
-        {
-            CurrentState = AIState::Chase;
-        }
-        if (bIsClose && bInSight && bplayerHasPickup)
+        if (bPlayerClose && bPlayerPoweredUp)
         {
             CurrentState = AIState::Flee;
         }
-        FindPickup(AIPawn);
-        if (ClosestPickupPosition == FVector::ZeroVector)
+        else if (bPlayerClose)
         {
-            CurrentState = AIState::Patrol;
+            CurrentState = AIState::Chase;
+        }
+        else
+        {
+            FindPickup(AIPawn);
+            if (ClosestPickupPosition.IsNearlyZero())
+            {
+                CurrentState = AIState::Patrol;
+            }
         }
         break;
+
     default:
+        CurrentState = AIState::Patrol;
         break;
     }
 }
 
 FVector UStateMachine::Move(APawn* AIPawn)
 {
-    FVector Direction = FVector::ZeroVector;
+    if (!AIPawn)
+    {
+        return FVector::ZeroVector;
+    }
 
     switch (CurrentState)
     {
     case AIState::Patrol:
-        Direction = AIPawn->GetActorForwardVector();
-        break;
+        return AIPawn->GetActorForwardVector().GetSafeNormal();
     case AIState::Chase:
-        Direction = Chase(AIPawn);
-        break;
+        return Chase(AIPawn);
     case AIState::Flee:
-        Direction = Flee(AIPawn);
-        break;
+        return Flee(AIPawn);
     case AIState::Collect:
-        Direction = Collect(AIPawn);
-        break;
+        return Collect(AIPawn);
     default:
-        break;
+        return FVector::ZeroVector;
     }
-
-    return Direction;
 }
 
 void UStateMachine::Run(APawn* AIPawn, FVector& OutDirection)
 {
-    if (AIPawn)
-    {
-        Transition(AIPawn);
-        OutDirection = Move(AIPawn);
+    OutDirection = FVector::ZeroVector;
 
-        FVector AIPosition = AIPawn->GetActorLocation();
+    if (!AIPawn)
+    {
+        return;
     }
+
+    Transition(AIPawn);
+    OutDirection = Move(AIPawn);
 }
