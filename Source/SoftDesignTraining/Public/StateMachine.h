@@ -18,34 +18,26 @@ enum class AIState : uint8
     Collect
 };
 
-/**
- * 
- */
 UCLASS(Blueprintable)
 class SOFTDESIGNTRAINING_API UStateMachine : public UObject
 {
-	GENERATED_BODY()
-
-private:
-
-    bool IsCharacterClose(ACharacter* TargetCharacter, APawn* AIPawn);
-    bool IsCharacterInSight(ACharacter* TargetCharacter, APawn* AIPawn);
-    void FindPickup(APawn* AIPawn);
-    void UpdateReferencePosition(ACharacter* TargetCharacter, APawn* AIPawn);
-    void Transition(APawn* AIPawn);
-    FVector Chase(APawn* AIPawn);
-    FVector Flee(APawn* AIPawn);
-    FVector Move(APawn* AIPawn);
-    FVector Collect(APawn* AIPawn);
+    GENERATED_BODY()
 
 public:
-
     void Run(APawn* AIPawn, FVector& OutDirection);
 
 private:
-
     AIState CurrentState = AIState::Patrol;
-    FVector ReferencePlayerPosition;
-    FVector ClosestPickupPosition = FVector::ZeroVector;;
-	
+    FVector ClosestPickupPosition = FVector::ZeroVector;
+
+    bool IsCharacterClose(ACharacter* TargetCharacter, APawn* AIPawn);
+    bool IsCharacterInSight(ACharacter* TargetCharacter, APawn* AIPawn);
+
+    void FindPickup(APawn* AIPawn);
+    void Transition(APawn* AIPawn);
+
+    FVector Chase(APawn* AIPawn);
+    FVector Flee(APawn* AIPawn);
+    FVector Collect(APawn* AIPawn);
+    FVector Move(APawn* AIPawn);
 };
