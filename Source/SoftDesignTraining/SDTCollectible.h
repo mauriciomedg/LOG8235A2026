@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/StaticMeshActor.h"
+#include "NiagaraSystem.h"
 #include "SDTCollectible.generated.h"
 
 /**
@@ -16,7 +17,7 @@ class SOFTDESIGNTRAINING_API ASDTCollectible : public AStaticMeshActor
 public:
     ASDTCollectible();
 
-    void Collect();
+    void Collect(bool isAgent);
     void OnCooldownDone();
     bool IsOnCooldown();
 
@@ -26,6 +27,18 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
         bool isMoveable = false;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
+        bool aiPlaySound = false;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
+        bool aiPlayFx = false;
+    
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
+        TObjectPtr<USoundBase> Sound;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
+        UNiagaraSystem* VisualEffect;
+
     virtual void Tick(float deltaTime) override;
     virtual void BeginPlay() override;
 
@@ -33,5 +46,5 @@ public:
 
 protected:
     FTimerHandle m_CollectCooldownTimer;
-	
+    TObjectPtr<UAudioComponent> AudioComponent;
 };
