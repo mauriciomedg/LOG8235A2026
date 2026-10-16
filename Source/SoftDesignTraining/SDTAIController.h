@@ -3,50 +3,45 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "AIController.h"
+#include "SDTBaseAIController.h"
 #include "SDTAIController.generated.h"
 
-class UStateMachine;
-
-UCLASS(ClassGroup = AI, config = Game)
-class SOFTDESIGNTRAINING_API ASDTAIController : public AAIController
+enum class ActionPriority
 {
-    GENERATED_BODY()
+    FLEE,
+    PLAYER,
+    LKP,
+    COLLECTIBLE,
+};
+
+enum class PedestrianState
+{
+    SPAWNED,
+    GO_TO_BRIDGE,
+    WAIT_AT_BRIDGE,
+    GO_TO_DESPAWN,
+    DESPAWN
+};
+
+/**
+ * 
+ */
+UCLASS(ClassGroup = AI, config = Game)
+class SOFTDESIGNTRAINING_API ASDTAIController : public ASDTBaseAIController
+{
+	GENERATED_BODY()
 
 public:
-    ASDTAIController(const FObjectInitializer& ObjectInitializer);
+    ASDTAIController(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
-    virtual void Tick(float DeltaTime) override;
+public:
+    virtual void OnMoveCompleted(FAIRequestID RequestID, const FPathFollowingResult& Result) override;
+    void AIStateInterrupted();
+
 
 private:
-    // Mouvement
-    FVector Velocity = FVector::ZeroVector;
-    float Acceleration = 900.0f;
-    float MaxSpeed = 500.0f;
+    virtual void GoToBestTarget(float deltaTime) override;
+    virtual void ShowNavigationPath() override;
 
-    // Murs
-    float WallDetectionDistance = 180.0f;
-    float WallSweepRadius = 45.0f;
-    float WallAvoidanceAngle = 180.0f;
-
-    // Death floor
-    float DeathFloorDetectionDistance = 220.0f;
-    float DeathFloorSweepRadius = 45.0f;
-    float DeathFloorAvoidanceSpeed = 300.0f;
-    bool bAvoidingDeathFloor = false;
-    FVector DeathFloorAvoidanceDirection = FVector::ZeroVector;
-
-    UPROPERTY()
-    TObjectPtr<UStateMachine> StateMachine;
-
-    void Navigation(const FVector& DesiredDirection, float DeltaTime);
-
-    bool DetectWall(const FVector& Direction, TArray<FHitResult>& Hits) const;
-    bool DetectDeathFloor(const FVector& Direction, TArray<FHitResult>& Hits) const;
-
-    FVector ComputeWallAvoidanceDirection(
-        const FVector& CurrentDirection, const FVector& DesiredDirection,
-        const TArray<FHitResult>& Hits, float DeltaTime) const;
-    FVector ChooseDeathFloorAvoidanceDirection(const FVector& DesiredDirection) const;
-    FVector MakeDeathFloorDirectionSafe(const FVector& ProposedDirection, const TArray<FHitResult>& DeathFloorHits) const;
+    PedestrianState m_PedestrianState{ PedestrianState::SPAWNED };
 };

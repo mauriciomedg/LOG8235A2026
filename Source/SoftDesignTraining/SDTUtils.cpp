@@ -10,6 +10,10 @@
 {
     FHitResult hitData;
     FCollisionQueryParams TraceParams(FName(TEXT("VictoreCore Trace")), true);
+    
+    // Fake cost for the exercise
+    //Sleep(1);
+    // End fake cost
 
     return uWorld->LineTraceSingleByChannel(hitData, sourcePoint, targetPoint, ECC_Pawn, TraceParams);
 }
@@ -24,5 +28,5 @@ bool SDTUtils::IsPlayerPoweredUp(UWorld * uWorld)
     if (!castedPlayerCharacter)
         return false;
 
-    return castedPlayerCharacter->IsPoweredUp();
+    return false; // castedPlayerCharacter->IsPoweredUp();
 }

@@ -1,7 +1,11 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 #include "GameFramework/PlayerController.h"
+#include "SDTPathFollowingComponent.h"
 #include "SoftDesignTrainingPlayerController.generated.h"
+
+class ASDTBridge;
+class ASDTBoatOperator;
 
 UCLASS()
 class ASoftDesignTrainingPlayerController : public APlayerController
@@ -11,13 +15,29 @@ class ASoftDesignTrainingPlayerController : public APlayerController
 public:
 	ASoftDesignTrainingPlayerController();
 
+    void BeginPlay() override;
+
 protected:
 
     virtual void SetupInputComponent() override;
 
-    void MoveForward(float axisValue);
-    void MoveRight(float axisValue);
+    void MoveCameraForward(float axisValue);
+    void MoveCameraRight(float axisValue);
+    void ZoomCamera(float axisValue);
 
+    void MoveCharacter();
+
+    void Activate();
+    void Deactivate();
+
+protected:
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Navigation, meta = (AllowPrivateAccess = "true"))
+    USDTPathFollowingComponent* m_PathFollowingComponent;
+
+    bool m_CanMoveCharacter;
+
+    ASDTBridge* m_BridgeActivated;
+    ASDTBoatOperator* m_BoatOperatorActivated;
 };
 
 

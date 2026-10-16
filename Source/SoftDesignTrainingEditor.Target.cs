@@ -9,8 +9,8 @@ public class SoftDesignTrainingEditorTarget : TargetRules
 	{
 		Type = TargetType.Editor;
 		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_8;
-        DefaultBuildSettings = BuildSettingsVersion.V7;
-        ExtraModuleNames.Add("SoftDesignTraining");
+		DefaultBuildSettings = BuildSettingsVersion.V7;
+		ExtraModuleNames.Add("SoftDesignTraining");
     }
 
 }

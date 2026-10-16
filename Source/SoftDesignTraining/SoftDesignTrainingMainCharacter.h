@@ -16,13 +16,11 @@ class SOFTDESIGNTRAINING_API ASoftDesignTrainingMainCharacter : public ASoftDesi
 public:
     ASoftDesignTrainingMainCharacter();
 
-    virtual void OnCollectPowerUp() override;
-
-    bool IsPoweredUp() { return m_IsPoweredUp; }
+    void MoveCameraForward(float value);
+    void MoveCameraRight(float value);
+    void ZoomCamera(float value);
 
 protected:
-
-    virtual void OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) override;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
         class UCameraComponent* m_TopDownCameraComponent;
@@ -30,14 +28,21 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
         class USpringArmComponent* m_CameraBoom;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
-        float m_PowerUpDuration = 10.f;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
+    float m_CameraSpeed;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
-        UMaterialInterface* m_PoweredUpMaterial;
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
+    FVector2D m_MaxCameraBounds;
 
-    void OnPowerUpDone();
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
+    FVector2D m_MinCameraBounds;
 
-    bool m_IsPoweredUp;
-    FTimerHandle m_PowerUpTimer;
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
+    float m_MinZoom;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
+    float m_MaxZoom;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
+    float m_ZoomSpeed;
 };
